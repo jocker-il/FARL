@@ -39,7 +39,7 @@ function pos2Str(pos)
   if not pos.x or not pos.y then
     pos = {x=0,y=0}
   end
-  return util.positiontostr(pos)
+  return util.position_to_str(pos)
 end
 
 function fixPos(pos)
@@ -64,7 +64,7 @@ function expandPos(pos, range)
 end
 
 function oppositedirection(direction)
-  local opp = util.oppositedirection(direction)
+  local opp = util.opposite_direction(direction)
   if not opp then
     if direction == defines.direction.northeast then
       return defines.direction.southwest
@@ -89,24 +89,24 @@ function moveposition(pos, direction, distance)
     error("invalid position", 2)
   end
   if direction % 2 == 0 then
-    return util.moveposition(pos, direction, distance)
+    return util.move_position(pos, direction, distance)
   else
     local dirs = {[1] = {0,2},
       [3] = {2,4},
       [5] = {4,6},
       [7] = {0,6}}
-    return util.moveposition(util.moveposition(pos, dirs[direction][1], distance), dirs[direction][2], distance)
+    return util.move_position(util.move_position(pos, dirs[direction][1], distance), dirs[direction][2], distance)
   end
 end
 
 function saveBlueprint(player, poleType, type, bp)
-  if not glob.savedBlueprints[player.name] then
-    glob.savedBlueprints[player.name] = {}
+  if not global.savedBlueprints[player.name] then
+    global.savedBlueprints[player.name] = {}
   end
-  if not glob.savedBlueprints[player.name][poleType] then
-    glob.savedBlueprints[player.name][poleType] = {straight = {}, diagonal = {}}
+  if not global.savedBlueprints[player.name][poleType] then
+    global.savedBlueprints[player.name][poleType] = {straight = {}, diagonal = {}}
   end
-  glob.savedBlueprints[player.name][poleType][type] = util.table.deepcopy(bp)
+  global.savedBlueprints[player.name][poleType][type] = util.table.deep_copy(bp)
 end
 
 local RED = {r = 0.9}
@@ -128,7 +128,7 @@ FARL = {
     local new = {
       locomotive = player.vehicle, train=player.vehicle.train,
       driver=player, active=false, lastrail=false,
-      direction = false, input = 1, name = player.vehicle.backername,
+      direction = false, input = 1, name = player.vehicle.backer_name,
       signalCount = 0, cruise = false, cruiseInterrupt = 0,
       lastposition = false, maintenance = false
     }
@@ -140,18 +140,18 @@ FARL = {
   onPlayerEnter = function(player)
     local i = FARL.findByLocomotive(player.vehicle)
     if i then
-      glob.farl[i].driver = player
-      glob.farl[i].settings = Settings.loadByPlayer(player)
-      if glob.farl[i].settings.root == nil then
-        glob.farl[i].settings.root = false
+      global.farl[i].driver = player
+      global.farl[i].settings = Settings.loadByPlayer(player)
+      if global.farl[i].settings.root == nil then
+        global.farl[i].settings.root = false
       end
     else
-      table.insert(glob.farl, FARL.new(player))
+      table.insert(global.farl, FARL.new(player))
     end
   end,
 
   onPlayerLeave = function(player)
-    for i,f in ipairs(glob.farl) do
+    for i,f in ipairs(global.farl) do
       if f.driver and f.driver.name == player.name then
         f:deactivate()
         f.driver = false
@@ -162,8 +162,8 @@ FARL = {
   end,
 
   findByLocomotive = function(loco)
-    for i,f in ipairs(glob.farl) do
-      if f.locomotive.equals(loco) then
+    for i,f in ipairs(global.farl) do
+      if f.locomotive == loco then
         return i
       end
     end
@@ -171,8 +171,8 @@ FARL = {
   end,
 
   findByPlayer = function(player)
-    for i,f in ipairs(glob.farl) do
-      if f.locomotive.equals(player.vehicle) then
+    for i,f in ipairs(global.farl) do
+      if f.locomotive == player.vehicle then
         f.driver = player
         return f
       end
@@ -190,13 +190,13 @@ FARL = {
         end
       else
         self.frontmover = false
-        for i,l in ipairs(self.train.locomotives.frontmovers) do
-          if l.equals(self.locomotive) then
+        for i,l in ipairs(self.train.locomotives.front_movers) do
+          if l == self.locomotive then
             self.frontmover = true
             break
           end
         end
-        self.cruiseInterrupt = self.driver.ridingstate.acceleration
+        self.cruiseInterrupt = self.driver.riding_state.acceleration
         if not self.maintenance then
           if self.active and self.settings.root then
             local lastWagon = self.train.carriages[#self.train.carriages].position
@@ -238,7 +238,7 @@ FARL = {
   end,
 
   removeTrees = function(self, pos, area)
-    for _, entity in pairs(game.findentitiesfiltered{area = area, type = "tree"}) do
+    for _, entity in pairs(self.locomotive.surface.find_entities_filtered{area = area, type = "tree"}) do
       entity.die()
       if not godmode and self.settings.collectWood then self:addItemToCargo("raw-wood", 1) end
     end
@@ -246,7 +246,7 @@ FARL = {
 
   removeStone = function(self, area)
     if removeStone then
-      for _, entity in pairs(game.findentitiesfiltered{area = area, name = "stone-rock"}) do
+      for _, entity in pairs(self.locomotive.surface.find_entities_filtered{area = area, name = "stone-rock"}) do
         entity.die()
       end
     end
@@ -261,7 +261,7 @@ FARL = {
         local st, ft = area[1],area[2]
         for x = st[1], ft[1], 1 do
           for y = st[2], ft[2], 1 do
-            local tileName = game.gettile(x, y).name
+            local tileName = self.locomotive.surface.get_tile(x, y).name
             -- check that tile is water, if it is add it to a list of tiles to be changed to grass
             if tileName == "water" or tileName == "deepwater" then
               table.insert(tiles,{name="grass", position={x, y}})
@@ -274,7 +274,7 @@ FARL = {
           local lfills = math.ceil(#tiles/4)
           -- check to make sure there is enough landfill in the FARL and if there is apply the changes, remove landfill.  if not then show error message
           if self:getCargoCount("landfill2by2") >= lfills then
-            game.settiles(tiles)
+            self.locomotive.surface.set_tiles(tiles)
             self:removeItemFromCargo("landfill2by2", lfills)
           else
             self:print("Out of 2 by 2 Landfill")
@@ -285,7 +285,7 @@ FARL = {
   end,
 
   pickupItems = function(self,pos, area)
-    for _, entity in ipairs(game.findentitiesfiltered{area = area, name="item-on-ground"}) do
+    for _, entity in ipairs(self.locomotive.surface.find_entities_filtered{area = area, name="item-on-ground"}) do
       self:addItemToCargo(entity.stack.name, entity.stack.count)
       entity.destroy()
     end
@@ -365,15 +365,15 @@ FARL = {
         return
       end
       if self.train.speed < limit then
-        self.driver.ridingstate = {acceleration = acc, direction = self.driver.ridingstate.direction}
+        self.driver.riding_state = {acceleration = acc, direction = self.driver.riding_state.direction}
       elseif self.active and self.train.speed > limit + 0.1 then
-        self.driver.ridingstate = {acceleration = 2, direction = self.driver.ridingstate.direction}
+        self.driver.riding_state = {acceleration = 2, direction = self.driver.riding_state.direction}
       else
-        self.driver.ridingstate = {acceleration = 0, direction = self.driver.ridingstate.direction}
+        self.driver.ridingstate = {acceleration = 0, direction = self.driver.riding_state.direction}
       end
     end
     if not self.cruise then
-      self.driver.ridingstate = {acceleration = self.driver.ridingstate.acceleration, direction = self.driver.ridingstate.direction}
+      self.driver.riding_state = {acceleration = self.driver.riding_state.acceleration, direction = self.driver.riding_state.direction}
     end
   end,
 
@@ -381,10 +381,10 @@ FARL = {
     self:cruiseControl()
     if self.active and self.lastrail and self.train then
       self.direction = self.direction or self:calcTrainDir()
-      self.acc = self.driver.ridingstate.acceleration
+      self.acc = self.driver.riding_state.acceleration
       local firstWagon = self.frontmover and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
       if ((self.acc ~= 3 and self.frontmover) or (self.acc ~=1 and not self.frontmover)) and distance(self.lastrail.position, firstWagon.position) < 6 then
-        self.input = self.driver.ridingstate.direction
+        self.input = self.driver.riding_state.direction
         if self.driver.name == "farl_player" then
           if self.course and self.course[1] then
             local diff = subPos(self.lastrail.position, self.course[1].pos)
@@ -446,7 +446,7 @@ FARL = {
     if self.active and self.maintenance and self.train then
       self.oldDirection = self.direction or self:calcTrainDir()
       self.direction = self.direction or self:calcTrainDir()
-      self.acc = self.driver.ridingstate.acceleration
+      self.acc = self.driver.riding_state.acceleration
       local firstWagon = self.frontmover and self.train.carriages[1] or self.train.carriages[#self.train.carriages]
       local currPosition = firstWagon.position
       if ((self.acc ~= 3 and self.frontmover) or (self.acc ~=1 and not self.frontmover)) and distance(self.lastposition, currPosition) < 6
@@ -490,7 +490,7 @@ FARL = {
     local pos = {rail.position.x, rail.position.y}
     local range = 0.4
     local found = false
-    local rails = game.findentitiesfiltered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, name=rail.name}
+    local rails = self.locomotive.surface.find_entities_filtered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, name=rail.name}
     for i,r in pairs(rails) do
       if r.position.x == pos[1] and r.position.y == pos[2] then
         found = r
@@ -527,7 +527,7 @@ FARL = {
             local signalPos = addPos(check[1][3].position, signalOffset)
             local range = (self.direction % 2 == 0) and 1 or 0.5
             local area = expandPos(signalPos,range)
-            for _, entity in pairs(game.findentitiesfiltered{area = area, name = "rail-signal"}) do
+            for _, entity in pairs(self.locomotive.surface.find_entities_filtered{area = area, name = "rail-signal"}) do
               self:flyingText("S", GREEN, true, entity.position)
               if entity.direction == signalDir then
                 lastSignal = entity
@@ -586,17 +586,17 @@ FARL = {
 
   toggleCruiseControl = function(self)
     if not self.cruise then
-      if self.driver and self.driver.ridingstate then
+      if self.driver and self.driver.riding_state then
         self.cruise = true
         local input = self.input or 1
-        self.driver.ridingstate = {acceleration = 1, direction = input}
+        self.driver.riding_state = {acceleration = 1, direction = input}
       end
       return
     else
-      if self.driver and self.driver.ridingstate then
+      if self.driver and self.driver.riding_state then
         self.cruise = false
         local input = self.input or 1
-        self.driver.ridingstate = {acceleration = self.driver.ridingstate.acceleration, direction = input}
+        self.driver.riding_state = {acceleration = self.driver.riding_state.acceleration, direction = input}
       end
       return
     end
@@ -626,7 +626,7 @@ FARL = {
       local pos = fixPos(next.position)
       local area = {{pos[1]-0.4,pos[2]-0.4},{pos[1]+0.4,pos[2]+0.4}}
       local found = false
-      for i,rail in ipairs(game.findentitiesfiltered{area=area, name=self.settings.rail.straight}) do
+      for i,rail in ipairs(self.locomotive.surface.find_entities_filtered{area=area, name=self.settings.rail.straight}) do
         local dirMatch = false
         if trainDir % 2 == 0 then
           dirMatch = rail.direction == trainDir or rail.direction+4%8 == trainDir
@@ -652,30 +652,30 @@ FARL = {
 
   addItemToCargo = function(self,item, count)
     local count = count or 1
-    local wagon = self.train.carriages
+    local wagon = self.train.cargo_wagons
     for _, entity in ipairs(wagon) do
-      if entity.type == "cargo-wagon" and entity.name ~= "rail-tanker" then
-        if entity.getinventory(1).caninsert({name = item, count = count}) then
-          entity.getinventory(1).insert({name = item, count = count})
+      if entity.name ~= "rail-tanker" then
+        if entity.get_inventory(1).can_insert({name = item, count = count}) then
+          entity.get_inventory(1).insert({name = item, count = count})
           return
         end
       end
     end
-    if self.settings.dropWood or ((item == self.settings.rail.curved or item == self.settings.rail.straight) and not glob.godmode) then
-      local position = game.findnoncollidingposition("item-on-ground", self.driver.position, 100, 0.5)
-      game.createentity{name = "item-on-ground", position = position, stack = {name = item, count = count}}
+    if self.settings.dropWood or ((item == self.settings.rail.curved or item == self.settings.rail.straight) and not global.godmode) then
+      local position = self.locomotive.surface.find_non_colliding_position("item-on-ground", self.driver.position, 100, 0.5)
+      self.locomotive.surface.create_entity{name = "item-on-ground", position = position, stack = {name = item, count = count}}
     end
   end,
 
   removeItemFromCargo = function(self,item, count)
     if godmode then return end
     local count = count or 1
-    local wagons = self.train.carriages
+    local wagons = self.train.cargo_wagons
     for _,entity in ipairs(wagons) do
-      if entity.type == "cargo-wagon" and entity.name ~= "rail-tanker" then
-        local inv = entity.getinventory(1).getcontents()
+      if entity.name ~= "rail-tanker" then
+        local inv = entity.get_inventory(1).get_contents()
         if inv[item] then
-          entity.getinventory(1).remove({name=item, count=count})
+          entity.get_inventory(1).remove({name=item, count=count})
         end
       end
     end
@@ -684,30 +684,30 @@ FARL = {
   getCargoCount = function(self, item)
     if godmode then return 9001 end
     local c = 0
-    for i, wagon in ipairs(self.train.carriages) do
-      if wagon.type == "cargo-wagon"  and wagon.name ~= "rail-tanker" then
-        c = c + wagon.getinventory(1).getitemcount(item)
+    for i, wagon in ipairs(self.train.cargo_wagons) do
+      if wagon.name ~= "rail-tanker" then
+        c = c + wagon.get_inventory(1).get_item_count(item)
       end
     end
     return c
   end,
 
-  genericCanPlace = function(arg)
+  genericCanPlace = function(self, arg)
     if not arg.position or not arg.position.x or not arg.position.y then
       debugDump(arg,true)
       error("invalid position", 2)
     elseif not arg.name then
       error("no name", 2)
     end
-    local name = arg.innername or arg.name
+    local name = arg.inner_name or arg.name
     if not arg.direction then
-      return game.canplaceentity{name = name, position = arg.position}
+      return self.locomotive.surface.can_place_entity{name = name, position = arg.position}
     else
-      return game.canplaceentity{name = name, position = arg.position, direction = arg.direction}
+      return self.locomotive.surface.can_place_entity{name = name, position = arg.position, direction = arg.direction}
     end
   end,
 
-  genericPlace = function(arg, ignore)
+  genericPlace = function(self, arg, ignore)
     local canPlace
     if not ignore then
       canPlace = FARL.genericCanPlace(arg)
@@ -721,17 +721,17 @@ FARL = {
       arg.force = force
       local pos = arg.position
       local area = {{pos.x - 0.4, pos.y - 0.4}, {pos.x + 0.4, pos.y + 0.4}}
-      for _,ent in pairs(game.findentitiesfiltered{area=area, name="ghost"}) do
+      for _,ent in pairs(self.locomotive.surface.find_entities_filtered{area=area, name="ghost"}) do
         debugDump(ent.name.." "..pos2Str(ent.position),true)
       end
-      entity = game.createentity(arg)
+      entity = self.locomotive.surface.create_entity(arg)
     end
     return canPlace, entity
   end,
 
   parseBlueprints = function(self, bp)
     for j=1,#bp do
-      local e = bp[j].getblueprintentities()
+      local e = bp[j].get_blueprint_entities()
       local offsets = {pole=false, poleEntities={}}
       local rail
 
@@ -804,15 +804,15 @@ FARL = {
       local newDir = nextRail.direction
       local newPos = nextRail.position
       local newRail = {name = nextRail.name, position = newPos, direction = newDir}
-      local canplace = FARL.genericCanPlace(newRail)
+      local canplace = self:genericCanPlace(newRail)
       if not canplace then
         self:prepareArea(newPos)
-        if not FARL.genericCanPlace(newRail) then
+        if not self:genericCanPlace(newRail) then
           if nextRail.name == self.settings.rail.curved then
             local areas = clearAreas[nextRail.direction%4]
             for i=1,6 do
               self:prepareArea(newPos, areas[i])
-              if FARL.genericCanPlace(newRail) then
+              if self:genericCanPlace(newRail) then
                 break
               end
             end
@@ -820,10 +820,10 @@ FARL = {
         end
       end
       local hasRail = self:getCargoCount(nextRail.name) > 0
-      canplace = FARL.genericCanPlace(newRail)
+      canplace = self:genericCanPlace(newRail)
       if canplace and hasRail then
         newRail.force = game.forces.player
-        local _, ent = FARL.genericPlace(newRail)
+        local _, ent = self:genericPlace(newRail)
         if self.settings.electric then
           remote.call("dim_trains", "railCreated", newPos)
         end
@@ -943,12 +943,12 @@ FARL = {
           local pos = addPos(pole, offset)
           --debugDump(pos, true)
           local entity = {name = poleEntities[i].name, position = pos}
-          local canplace = FARL.genericCanPlace(entity)
+          local canplace = self:genericCanPlace(entity)
           if not canplace then
             self:prepareArea(pos)
           end
-          if FARL.genericCanPlace(entity) then
-            FARL.genericPlace{name = poleEntities[i].name, position = pos, direction=0,force = game.forces.player}
+          if self:genericCanPlace(entity) then
+            self:genericPlace{name = poleEntities[i].name, position = pos, direction=0,force = game.forces.player}
             self:removeItemFromCargo(poleEntities[i].name, 1)
           end
         end
@@ -964,18 +964,18 @@ FARL = {
         local c = {}
         local items = {}
         if self.settings.ccWires == 1 then
-          c = {defines.circuitconnector.red}
+          c = {defines.circuit_connector.red}
           items = {"red-wire"}
         elseif self.settings.ccWires == 2 then
-          c = {defines.circuitconnector.green}
+          c = {defines.circuit_connector.green}
           items = {"green-wire"}
         else
-          c = {defines.circuitconnector.red, defines.circuitconnector.green}
+          c = {defines.circuit_connector.red, defines.circuit_connector.green}
           items = {"red-wire", "green-wire"}
         end
         for i=1,#c do
           if self:getCargoCount(items[i]) > 0 then
-            pole.connectneighbour(self.ccNetPole, c[i])
+            pole.connect_neighbour(self.ccNetPole, c[i])
             self:removeItemFromCargo(items[i], 1)
           end
         end
@@ -989,7 +989,7 @@ FARL = {
     local tmp, ret, minDist = minPos, false, 100
     local reach = self.settings.medium and 9 or 30
     local area = {{tmp.x-reach,tmp.y-reach},{tmp.x+reach,tmp.y+reach}}
-    for i,p in pairs(game.findentitiesfiltered{area=area, name=name}) do
+    for i,p in pairs(self.locomotive.surface.find_entities_filtered{area=area, name=name}) do
       local dist = distance(p.position, tmp)
       debugDump({dist=dist, minPos=minPos, p=p.position},true)
       local diff = subPos(p.position,self.lastPole.position)
@@ -1069,7 +1069,7 @@ FARL = {
     if self.settings.minPoles then
       local locomotive = self.locomotive
       local pos = {locomotive.position.x, locomotive.position.y}
-      local poles = game.findentitiesfiltered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
+      local poles = self.locomotive.surface.find_entities_filtered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
       local checkpos = lastrail and lastrail.position or locomotive.position
       local min, pole = math.abs(distance(self.lastPole.position, checkpos)), nil
       for i=1, #poles do
@@ -1113,13 +1113,13 @@ FARL = {
       end
       local pole = {name = name, position = polePos}
       --debugDump(util.distance(pole.position, self.lastPole.position),true)
-      if not FARL.genericCanPlace(pole) then
+      if not self:genericCanPlace(pole) then
         self:prepareArea(polePos)
       end
-      local canPlace = FARL.genericCanPlace(pole)
+      local canPlace = self:genericCanPlace(pole)
       local hasPole = self:getCargoCount(name) > 0
       if canPlace and hasPole then
-        local success, pole = FARL.genericPlace{name = name, position = polePos, force = game.forces.player}
+        local success, pole = self:genericPlace{name = name, position = polePos, force = game.forces.player}
         if not pole.neighbours[1] then
           self:flyingText("Placed unconnected pole", RED, true)
         end
@@ -1179,10 +1179,10 @@ FARL = {
       end
       local pos = addPos(rail.position, offset)
       local signal = {name = "rail-signal", position = pos, direction = dir, force = game.forces.player}
-      if not FARL.genericCanPlace(signal) then
+      if not self:genericCanPlace(signal) then
         self:prepareArea(pos)
       end
-      local success, entity = FARL.genericPlace(signal)
+      local success, entity = self:genericPlace(signal)
       if success then
         self:removeItemFromCargo(signal.name, 1)
         return success, entity
@@ -1199,7 +1199,7 @@ FARL = {
     local reach = self.settings.medium and 9 or 30
     local locomotive = self.locomotive
     local pos = {locomotive.position.x, locomotive.position.y}
-    local poles = game.findentitiesfiltered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
+    local poles = self.locomotive.surface.find_entities_filtered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
     local min, pole = 900, nil
     for i=1, #poles do
       local dist = math.abs(distance(locomotive.position,poles[i].position))
@@ -1263,7 +1263,7 @@ FARL = {
     --debugDump({dir=trainDir,pos=pos},true)
     --self:flyingText("|", RED, true, pos)
     local range = 0.4
-    local rails = game.findentitiesfiltered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, type="rail"}
+    local rails = self.locomotive.surface.find_entities_filtered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, type="rail"}
     local curves ={}
     --debugDump(#rails,true)
     for i=1, #rails do
@@ -1305,7 +1305,7 @@ FARL = {
     if show then
       local pos = pos or addPos(self.locomotive.position, {x=0,y=-1})
       color = color or RED
-      game.createentity({name="flying-text", position=pos, text=line, color=color})
+      self.locomotive.surface.create_entity({name="flying-text", position=pos, text=line, color=color})
     end
   end,
 }

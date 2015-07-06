@@ -111,7 +111,7 @@ GUI = {
       end
       local psettings = Settings.loadByPlayer(player)
       if name == "debug" then
-        saveVar(glob,"debug")
+        saveVar(global,"debug")
         --glob.debug = {}
         --glob.action = {}
         farl:debugInfo()
@@ -293,8 +293,8 @@ GUI = {
         medium= {diagonal=defaultsMediumDiagonal, straight=defaultsMediumStraight},
         big=    {diagonal=defaultsDiagonal, straight=defaultsStraight}}
       psettings.activeBP = psettings.medium and psettings.bp.medium or psettings.bp.big
-      if glob.savedBlueprints[player.name] then
-        glob.savedBlueprints[player.name] = nil
+      if global.savedBlueprints[player.name] then
+        global.savedBlueprints[player.name] = nil
       end
       farl:print("Cleared blueprints")
       GUI.destroyGui(player)

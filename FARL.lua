@@ -130,7 +130,7 @@ FARL = {
       driver=player, active=false, lastrail=false,
       direction = false, input = 1, name = player.vehicle.backer_name,
       signalCount = 0, cruise = false, cruiseInterrupt = 0,
-      lastposition = false, maintenance = false
+      lastposition = false, maintenance = false, surface = player.vehicle.surface
     }
     new.settings = Settings.loadByPlayer(player)
     setmetatable(new, {__index=FARL})
@@ -238,7 +238,7 @@ FARL = {
   end,
 
   removeTrees = function(self, pos, area)
-    for _, entity in pairs(self.locomotive.surface.find_entities_filtered{area = area, type = "tree"}) do
+    for _, entity in pairs(self.surface.find_entities_filtered{area = area, type = "tree"}) do
       entity.die()
       if not godmode and self.settings.collectWood then self:addItemToCargo("raw-wood", 1) end
     end
@@ -246,7 +246,7 @@ FARL = {
 
   removeStone = function(self, area)
     if removeStone then
-      for _, entity in pairs(self.locomotive.surface.find_entities_filtered{area = area, name = "stone-rock"}) do
+      for _, entity in pairs(self.surface.find_entities_filtered{area = area, name = "stone-rock"}) do
         entity.die()
       end
     end
@@ -261,7 +261,7 @@ FARL = {
         local st, ft = area[1],area[2]
         for x = st[1], ft[1], 1 do
           for y = st[2], ft[2], 1 do
-            local tileName = self.locomotive.surface.get_tile(x, y).name
+            local tileName = self.surface.get_tile(x, y).name
             -- check that tile is water, if it is add it to a list of tiles to be changed to grass
             if tileName == "water" or tileName == "deepwater" then
               table.insert(tiles,{name="grass", position={x, y}})
@@ -274,7 +274,7 @@ FARL = {
           local lfills = math.ceil(#tiles/4)
           -- check to make sure there is enough landfill in the FARL and if there is apply the changes, remove landfill.  if not then show error message
           if self:getCargoCount("landfill2by2") >= lfills then
-            self.locomotive.surface.set_tiles(tiles)
+            self.surface.set_tiles(tiles)
             self:removeItemFromCargo("landfill2by2", lfills)
           else
             self:print("Out of 2 by 2 Landfill")
@@ -285,7 +285,7 @@ FARL = {
   end,
 
   pickupItems = function(self,pos, area)
-    for _, entity in ipairs(self.locomotive.surface.find_entities_filtered{area = area, name="item-on-ground"}) do
+    for _, entity in ipairs(self.surface.find_entities_filtered{area = area, name="item-on-ground"}) do
       self:addItemToCargo(entity.stack.name, entity.stack.count)
       entity.destroy()
     end
@@ -490,7 +490,7 @@ FARL = {
     local pos = {rail.position.x, rail.position.y}
     local range = 0.4
     local found = false
-    local rails = self.locomotive.surface.find_entities_filtered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, name=rail.name}
+    local rails = self.surface.find_entities_filtered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, name=rail.name}
     for i,r in pairs(rails) do
       if r.position.x == pos[1] and r.position.y == pos[2] then
         found = r
@@ -527,7 +527,7 @@ FARL = {
             local signalPos = addPos(check[1][3].position, signalOffset)
             local range = (self.direction % 2 == 0) and 1 or 0.5
             local area = expandPos(signalPos,range)
-            for _, entity in pairs(self.locomotive.surface.find_entities_filtered{area = area, name = "rail-signal"}) do
+            for _, entity in pairs(self.surface.find_entities_filtered{area = area, name = "rail-signal"}) do
               self:flyingText("S", GREEN, true, entity.position)
               if entity.direction == signalDir then
                 lastSignal = entity
@@ -626,7 +626,7 @@ FARL = {
       local pos = fixPos(next.position)
       local area = {{pos[1]-0.4,pos[2]-0.4},{pos[1]+0.4,pos[2]+0.4}}
       local found = false
-      for i,rail in ipairs(self.locomotive.surface.find_entities_filtered{area=area, name=self.settings.rail.straight}) do
+      for i,rail in ipairs(self.surface.find_entities_filtered{area=area, name=self.settings.rail.straight}) do
         local dirMatch = false
         if trainDir % 2 == 0 then
           dirMatch = rail.direction == trainDir or rail.direction+4%8 == trainDir
@@ -662,8 +662,8 @@ FARL = {
       end
     end
     if self.settings.dropWood or ((item == self.settings.rail.curved or item == self.settings.rail.straight) and not global.godmode) then
-      local position = self.locomotive.surface.find_non_colliding_position("item-on-ground", self.driver.position, 100, 0.5)
-      self.locomotive.surface.create_entity{name = "item-on-ground", position = position, stack = {name = item, count = count}}
+      local position = self.surface.find_non_colliding_position("item-on-ground", self.driver.position, 100, 0.5)
+      self.surface.create_entity{name = "item-on-ground", position = position, stack = {name = item, count = count}}
     end
   end,
 
@@ -701,9 +701,9 @@ FARL = {
     end
     local name = arg.inner_name or arg.name
     if not arg.direction then
-      return self.locomotive.surface.can_place_entity{name = name, position = arg.position}
+      return self.surface.can_place_entity{name = name, position = arg.position}
     else
-      return self.locomotive.surface.can_place_entity{name = name, position = arg.position, direction = arg.direction}
+      return self.surface.can_place_entity{name = name, position = arg.position, direction = arg.direction}
     end
   end,
 
@@ -721,10 +721,10 @@ FARL = {
       arg.force = force
       local pos = arg.position
       local area = {{pos.x - 0.4, pos.y - 0.4}, {pos.x + 0.4, pos.y + 0.4}}
-      for _,ent in pairs(self.locomotive.surface.find_entities_filtered{area=area, name="ghost"}) do
+      for _,ent in pairs(self.surface.find_entities_filtered{area=area, name="ghost"}) do
         debugDump(ent.name.." "..pos2Str(ent.position),true)
       end
-      entity = self.locomotive.surface.create_entity(arg)
+      entity = self.surface.create_entity(arg)
     end
     return canPlace, entity
   end,
@@ -989,7 +989,7 @@ FARL = {
     local tmp, ret, minDist = minPos, false, 100
     local reach = self.settings.medium and 9 or 30
     local area = {{tmp.x-reach,tmp.y-reach},{tmp.x+reach,tmp.y+reach}}
-    for i,p in pairs(self.locomotive.surface.find_entities_filtered{area=area, name=name}) do
+    for i,p in pairs(self.surface.find_entities_filtered{area=area, name=name}) do
       local dist = distance(p.position, tmp)
       debugDump({dist=dist, minPos=minPos, p=p.position},true)
       local diff = subPos(p.position,self.lastPole.position)
@@ -1069,7 +1069,7 @@ FARL = {
     if self.settings.minPoles then
       local locomotive = self.locomotive
       local pos = {locomotive.position.x, locomotive.position.y}
-      local poles = self.locomotive.surface.find_entities_filtered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
+      local poles = self.surface.find_entities_filtered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
       local checkpos = lastrail and lastrail.position or locomotive.position
       local min, pole = math.abs(distance(self.lastPole.position, checkpos)), nil
       for i=1, #poles do
@@ -1199,7 +1199,7 @@ FARL = {
     local reach = self.settings.medium and 9 or 30
     local locomotive = self.locomotive
     local pos = {locomotive.position.x, locomotive.position.y}
-    local poles = self.locomotive.surface.find_entities_filtered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
+    local poles = self.surface.find_entities_filtered{area={{pos[1]-reach,pos[2]-reach},{pos[1]+reach,pos[2]+reach}}, name=name}
     local min, pole = 900, nil
     for i=1, #poles do
       local dist = math.abs(distance(locomotive.position,poles[i].position))
@@ -1263,7 +1263,7 @@ FARL = {
     --debugDump({dir=trainDir,pos=pos},true)
     --self:flyingText("|", RED, true, pos)
     local range = 0.4
-    local rails = self.locomotive.surface.find_entities_filtered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, type="rail"}
+    local rails = self.surface.find_entities_filtered{area={{pos[1]-range,pos[2]-range},{pos[1]+range,pos[2]+range}}, type="rail"}
     local curves ={}
     --debugDump(#rails,true)
     for i=1, #rails do
@@ -1305,7 +1305,7 @@ FARL = {
     if show then
       local pos = pos or addPos(self.locomotive.position, {x=0,y=-1})
       color = color or RED
-      self.locomotive.surface.create_entity({name="flying-text", position=pos, text=line, color=color})
+      self.surface.create_entity({name="flying-text", position=pos, text=line, color=color})
     end
   end,
 }

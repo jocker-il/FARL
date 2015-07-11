@@ -9,7 +9,7 @@ removeStone = true
 
 --local direction ={ N=0, NE=1, E=2, SE=3, S=4, SW=5, W=6, NW=7}
 landfillInstalled = game.entity_prototypes["landfill2by2"] and true or false
-electricInstalled = game.entity_prototypes["straight-power-rail"] and true or false
+electricInstalled = (game.entity_prototypes["straight-power-rail"] and remote.interfaces.dim_trains and remote.interfaces.dim_trains.railCreated) and true or false
 
 cargoTypes = { ["straight-rail"] = true, ["curved-rail"] = true,["rail-signal"] = true,
   ["big-electric-pole"] = true, ["medium-electric-pole"] = true, ["small-lamp"] = true,
